@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+  <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WBCAT Viewer — Windows Backup Forensics</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+            min-height: 100vh;
+}
+    header {
+            background: linear-gradient(135deg, #1a1f2e 0%, #16213e 100%);
+      border-bottom: 1px solid #2d3748;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+}
+    header .logo {
+      width: 36px; height: 36px;
+      background: linear-gradient(135deg, #4299e1, #667eea);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px;
+    }
+    header h1 { font-size: 20px; font-weight: 600; color: #fff; }
+        header .badge {
+      background: #2d3748; color: #68d391;
+      font-size: 11px; padding: 2px 8px; border-radius: 12px;
+      font-weight: 500;
+    }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .drop-zone {
+            border: 2px dashed #4a5568;
+      border-radius: 12px;
+      padding: 48px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #1a202c;
+      margin-bottom: 24px;
+}
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #4299e1;
+      background: #1e2a3a;
+    }
+    .drop-zone .icon { font-size: 48px; margin-bottom: 12px; }
+    .drop-zone h2 { font-size: 18px; margin-bottom: 8px; color: #fff; }
+        .drop-zone p { color: #718096; font-size: 14px; }
+    .drop-zone input { display: none; }
+    .btn {
+      display: inline-block;
+      background: #4299e1;
+      color: white;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      margin-top: 12px;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #3182ce; }
+    #results { display: none; }
+    .summary-grid {
+            display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+      }
+    .stat-card {
+            background: #1a202c;
+      border: 1px solid #2d3748;
+      border-radius: 10px;
+      padding: 16px;
+      text-align: center;
+}
+    .stat-card .num { font-size: 28px; font-weight: 700; color: #4299e1; }
+    .stat-card .label { font-size: 12px; color: #718096; margin-top: 4px; }
+    .warning-bar {
+            background: #744210; border: 1px solid #d69e2e;
+      color: #faf089; padding: 10px 16px; border-radius: 8px;
+          font-size: 13px; margin-bottom: 16px;
+}
+    .tabs {
+            display: flex; gap: 4px; margin-bottom: 16px;
+      border-bottom: 1px solid #2d3748; padding-bottom: 0;
+    }
+    .tab {
+            padding: 8px 16px; font-size: 13px; font-weight: 500;
+      color: #718096; cursor: pointer; border-radius: 6px 6px 0 0;
+      border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+    .tab:hover { color: #e2e8f0; }
+          .tab.active { color: #4299e1; border-bottom-color: #4299e1; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th {
+            background: #1a202c; color: #a0aec0; font-weight: 500;
+          padding: 10px 12px; text-align: left;
+      border-bottom: 1px solid #2d3748; position: sticky; top: 0;
+}
+    td {
+            padding: 8px 12px; border-bottom: 1px solid #1a202c;
+      vertical-align: middle;
+}
+    tr:hover td { background: #1a202c; }
+    .mono { font-family: 'Courier New', monospace; font-size: 12px; color: #68d391; }
+    .table-wrap { border: 1px solid #2d3748; border-radius: 8px; overflow: hidden; overflow-x: auto; }
+    .empty { text-align: center; color: #4a5568; padding: 32px; font-size: 14px; }
+    .file-name { color: #4299e1; font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+    .header-info { background: #1a202c; border: 1px solid #2d3748; border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+    .header-info h3 { font-size: 14px; color: #a0aec0; margin-bottom: 12px; }
+        .kv { display: flex; gap: 12px; margin-bottom: 6px; font-size: 13px; }
+    .kv .k { color: #718096; width: 130px; flex-shrink: 0; }
+    .kv .v { color: #e2e8f0; font-family: monospace; }
+        #loading { display: none; text-align: center; padding: 32px; color: #4299e1; }
+        .spinner { border: 3px solid #2d3748; border-top-color: #4299e1; border-radius: 50%; width: 32px; height: 32px; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+    </head>
+    <body>
+    <header>
+      <div class="logo">&#128193;</div>
+      <h1>WBCAT Viewer</h1>
+      <span class="badge">Windows Backup Forensics</span>
+</header>
+
+<div class="container">
+  <div class="drop-zone" id="dropZone">
+    <div class="icon">&#128190;</div>
+        <h2>Drop your .wbcat file here</h2>
+    <p>Windows Backup Catalog file forensic analyzer</p>
+    <label class="btn">Browse File<input type="file" id="fileInput" accept=".wbcat,.bkf,.bin" /></label>
+      </div>
+
+      <div id="loading"><div class="spinner"></div><p style="margin-top:12px">Parsing catalog...</p></div>
+
+      <div id="results">
+        <div class="file-name" id="fileName"></div>
+        <div id="warningBar"></div>
+
+        <div class="summary-grid" id="summaryGrid"></div>
+
+        <div class="header-info" id="headerInfo"></div>
+
+        <div class="tabs">
+          <div class="tab active" data-tab="strings">Strings</div>
+          <div class="tab" data-tab="timestamps">Timestamps</div>
+          <div class="tab" data-tab="guids">GUIDs</div>
+          <div class="tab" data-tab="records">Records</div>
+        </div>
+
+        <div id="strings" class="tab-content active"></div>
+        <div id="timestamps" class="tab-content"></div>
+        <div id="guids" class="tab-content"></div>
+        <div id="records" class="tab-content"></div>
+      </div>
+    </div>
+
+    <script>
+    const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+    e.preventDefault();
+  dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files[0]) processFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', () => { if (fileInput.files[0]) processFile(fileInput.files[0]); });
+
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById(tab.dataset.tab).classList.add('active');
+});
+});
+
+async function processFile(file) {
+  document.getElementById('loading').style.display = 'block';
+  document.getElementById('results').style.display = 'none';
+
+  const buf = await file.arrayBuffer();
+  const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+
+  let data;
+  try {
+    const res = await fetch('/api/parse', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ data: b64 })
+      });
+    data = await res.json();
+  } catch (err) {
+    // Fallback: parse client-side if server unavailable
+    data = parseClientSide(new Uint8Array(buf));
+  }
+
+  document.getElementById('loading').style.display = 'none';
+  renderResults(file.name, data);
+}
+
+function renderResults(name, data) {
+    document.getElementById('fileName').textContent = '&#128193; ' + name;
+
+  // Warning
+  const wb = document.getElementById('warningBar');
+  wb.innerHTML = data.warning ? `<div class="warning-bar">&#9888; ${data.warning}</div>` : '';
+
+      // Summary
+      const sg = document.getElementById('summaryGrid');
+  const s = data.summary || {};
+  sg.innerHTML = Object.entries(s).map(([k, v]) =>
+    `<div class="stat-card"><div class="num">${v}</div><div class="label">${k.replace(/([A-Z])/g, ' $1').trim()}</div></div>`
+  ).join('');
+
+  // Header
+  const hi = document.getElementById('headerInfo');
+  hi.innerHTML = `<h3>&#128196; File Header</h3>
+    <div class="kv"><span class="k">Magic Bytes</span><span class="v mono">${data.magic || 'n/a'}</span></div>
+    <div class="kv"><span class="k">Version</span><span class="v">${data.version !== undefined ? '0x'+data.version.toString(16) : 'n/a'}</span></div>
+    <div class="kv"><span class="k">Catalog Type</span><span class="v">${data.catalogType !== undefined ? '0x'+data.catalogType.toString(16) : 'n/a'}</span></div>
+    <div class="kv"><span class="k">Flags</span><span class="v">${data.flags !== undefined ? '0x'+data.flags.toString(16) : 'n/a'}</span></div>
+    <div class="kv"><span class="k">File Size</span><span class="v">${data.fileSize ? (data.fileSize/1024).toFixed(1)+' KB' : 'n/a'}</span></div>`;
+
+  // Strings
+  const strs = data.strings || [];
+  document.getElementById('strings').innerHTML = strs.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Offset</th><th>String Value</th></tr></thead>
+          <tbody>${strs.map(s => `<tr><td class="mono">${s.offset}</td><td>${escHtml(s.value)}</td></tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty">No Unicode strings found</div>';
+
+  // Timestamps
+  const ts = data.timestamps || [];
+  document.getElementById('timestamps').innerHTML = ts.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Offset</th><th>Timestamp (UTC)</th></tr></thead>
+          <tbody>${ts.map(t => `<tr><td class="mono">${t.offset}</td><td>${t.timestamp}</td></tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty">No timestamps found</div>';
+
+  // GUIDs
+  const guids = data.guids || [];
+  document.getElementById('guids').innerHTML = guids.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Offset</th><th>GUID</th></tr></thead>
+          <tbody>${guids.map(g => `<tr><td class="mono">${g.offset}</td><td class="mono">${g.guid}</td></tr>`).join('')}</tbody>
+        </table></div>` : '<div class="empty">No GUIDs found</div>';
+
+  // Records
+  const recs = data.records || [];
+  document.getElementById('records').innerHTML = recs.length ? `
+        <div class="table-wrap"><table>
+          <thead><tr><th>Offset</th><th>Type</th><th>Length</th><th>Data Preview</th></tr></thead>
+          <tbody>${recs.map(r => `<tr><td class="mono">${r.offset}</td><td class="mono">${r.type}</td><td>${r.length}</td><td class="mono" style="max-width:300px;overflow:hidden;text-overflow:ellipsis">${r.preview}</td></tr>`).join('')}</tbody>
+    </table></div>` : '<div class="empty">No TLV records found</div>';
+
+  document.getElementById('results').style.display = 'block';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+// Client-side fallback parser (mirrors server logic)
+function parseClientSide(bytes) {
+  const buf = bytes;
+  const toHex = arr => Array.from(arr).map(b => b.toString(16).padStart(2,'0')).join('');
+  const magic = toHex(buf.slice(0,4));
+  const result = { fileSize: buf.length, magic, records: [], strings: [], timestamps: [], guids: [] };
+
+  // Extract Unicode strings
+  let i = 0;
+  while (i < buf.length - 4) {
+    let start = i, len = 0;
+    while (i+1 < buf.length && buf[i+1] === 0 && buf[i] >= 0x20 && buf[i] <= 0x7e) { len++; i+=2; }
+    if (len >= 4) {
+      const arr = buf.slice(start, start+len*2);
+      result.strings.push({ offset: '0x'+start.toString(16).padStart(8,'0'), value: new TextDecoder('utf-16le').decode(arr) });
+} else { i = start+1; }
+    if (result.strings.length >= 50) break;
+}
+
+  result.summary = { totalSize: (buf.length/1024).toFixed(1)+' KB', stringCount: result.strings.length, note: 'Client-side parse' };
+  if (magic !== '4d534446') result.warning = `Unexpected magic: ${magic}`;
+  return result;
+}
+</script>
+</body>
+</html>
